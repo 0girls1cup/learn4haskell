@@ -344,6 +344,14 @@ of a book, but you are not limited only by the book properties we described.
 Create your own book type of your dreams!
 -}
 
+data Book = Book {
+  bookTitle :: String,
+  bookAuthor :: String,
+  bookPages :: Integer,
+  isBookForGreatGood :: Bool,
+  bookContent :: String
+}
+
 {- |
 =⚔️= Task 2
 
@@ -459,6 +467,7 @@ and provide more flexibility when working with data types.
 Create a simple enumeration for the meal types (e.g. breakfast). The one who
 comes up with the most number of names wins the challenge. Use your creativity!
 -}
+data Breakfast = Bacon | Bagel | BearClaw | Biscuit | BreadPudding | Burrito | Cereal | Sausage | CerealBar | CinnamonRoll | CoffeeCake | CornFlakes | CreamOfWheat | Crepe | Croissant | Cornbread | Doughnut | Eclair | Eggs | EggSandwich | EggsBenedict | EnergyBar | EnglishMuffin | FrenchToast | FriedEggs | Frittata | Fruit | FruitSalad | Granola | Grits | Ham | HashBrowns | HomeFries | Kolache | McGriddle | McMuffin | MonkeyBread | Muesli | Muffin | Oatmeal | Omelette | Pancake | PopTart | Quiche | Quesadilla | Scone | Soup | Steak | Strudel | Smoothie | Waffle | Yogurt
 
 {- |
 =⚔️= Task 4
@@ -479,6 +488,35 @@ After defining the city, implement the following functions:
    complicated task, walls can be built only if the city has a castle
    and at least 10 living __people__ inside in all houses of the city totally.
 -}
+data House = H1 | H2 | H3 | H4
+
+data Entertainment = Church | Library
+
+newtype Castle = Castle String
+
+type Wall = ()
+
+data City = City 
+  (Maybe (Maybe Wall, Castle))
+  Entertainment
+  [House]
+
+population :: House -> Int
+population H1 = 1
+population H2 = 2
+population H3 = 3
+population H4 = 4
+
+buildCastle :: String -> City -> City
+buildCastle nn (City c e h) = City (fmap (const $ Castle nn) <$> c) e h
+
+buildHouse :: House -> City -> City
+buildHouse h (City c e hs) = City c e (h:hs)
+
+buildWalls :: City -> Maybe City
+buildWalls (City (Just (Nothing, c)) e h) 
+  | (sum $ map population h) > 9 = Just $ City (Just (Just (), c)) e h 
+buildWalls _                     = Nothing
 
 {-
 =🛡= Newtypes
@@ -560,22 +598,30 @@ introducing extra newtypes.
 🕯 HINT: if you complete this task properly, you don't need to change the
     implementation of the "hitPlayer" function at all!
 -}
+newtype Hp = Hp Int
+newtype Att = Att Int
+newtype Def = Def Int
+newtype Dmg = Dmg Int
+newtype Arm = Arm Int
+newtype Dex = Dex Int
+newtype Str = Str Int
+
 data Player = Player
-    { playerHealth    :: Int
-    , playerArmor     :: Int
-    , playerAttack    :: Int
-    , playerDexterity :: Int
-    , playerStrength  :: Int
+    { playerHealth    :: Hp
+    , playerArmor     :: Arm
+    , playerAttack    :: Att
+    , playerDexterity :: Dex
+    , playerStrength  :: Str
     }
 
-calculatePlayerDamage :: Int -> Int -> Int
-calculatePlayerDamage attack strength = attack + strength
+calculatePlayerDamage :: Att -> Str -> Dmg
+calculatePlayerDamage (Att attack) (Str strength) = Dmg $ attack + strength
 
-calculatePlayerDefense :: Int -> Int -> Int
-calculatePlayerDefense armor dexterity = armor * dexterity
+calculatePlayerDefense :: Arm -> Dex -> Def
+calculatePlayerDefense (Arm armor) (Dex dexterity) = Def $ armor * dexterity
 
-calculatePlayerHit :: Int -> Int -> Int -> Int
-calculatePlayerHit damage defense health = health + defense - damage
+calculatePlayerHit :: Dmg -> Def -> Hp -> Hp
+calculatePlayerHit (Dmg damage) (Def defense) (Hp health) = Hp $ health + defense - damage
 
 -- The second player hits first player and the new first player is returned
 hitPlayer :: Player -> Player -> Player
@@ -752,6 +798,17 @@ parametrise data types in places where values can be of any general type.
 🕯 HINT: 'Maybe' that some standard types we mentioned above are useful for
   maybe-treasure ;)
 -}
+data TreasureChest x = TreasureChest {
+  treasureChestGold :: Int,
+  treasureChestLoot :: x
+}
+
+data Dragon p = Dragon {
+  dragonSleep :: Bool,
+  dragonPower :: Maybe p
+}
+
+data Lair p x = Lair (Dragon p) (Maybe (TreasureChest x))
 
 {-
 =🛡= Typeclasses
@@ -910,6 +967,18 @@ Implement instances of "Append" for the following types:
 class Append a where
     append :: a -> a -> a
 
+newtype Gold = Gold Int
+
+instance Append Gold where
+  append (Gold g1) (Gold g2) = Gold $ g1 + g2
+
+instance Append [a] where
+  append = (++)
+
+instance (Append a) => Append (Maybe a) where
+  append m1 m2  = append <$> m1 <*> m2
+
+
 
 {-
 =🛡= Standard Typeclasses and Deriving
@@ -970,7 +1039,25 @@ implement the following functions:
 
 🕯 HINT: to implement this task, derive some standard typeclasses
 -}
+data Weekday = Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday deriving (Eq, Show)
 
+instance Enum Weekday where
+  succ Monday = Tuesday
+  succ Tuesday = Wednesday
+  succ Wednesday = Thursday
+  succ Thursday = Friday
+  succ Friday = Saturday
+  succ Saturday = Sunday
+  succ Sunday = Monday
+
+
+isWeekend :: Weekday -> Bool
+isWeekend Saturday = True
+isWeekend Sunday   = True
+isWeekend _        = False
+
+nextDay :: Weekday -> Weekday
+nextDay = succ
 {-
 =💣= Task 9*
 
