@@ -49,10 +49,10 @@ In this module, we enable the "InstanceSigs" feature that allows writing type
 signatures in places where you can't by default. We believe it's helpful to
 provide more top-level type signatures, especially when learning Haskell.
 -}
-{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE InstanceSigs, GADTs, ExplicitForAll, RankNTypes #-}
 
 module Chapter3 where
-
+import Data.List (transpose)
 {-
 =🛡= Types in Haskell
 
@@ -1042,14 +1042,22 @@ implement the following functions:
 data Weekday = Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday deriving (Eq, Show)
 
 instance Enum Weekday where
-  succ Monday = Tuesday
-  succ Tuesday = Wednesday
+  succ Monday    = Tuesday
+  succ Tuesday   = Wednesday
   succ Wednesday = Thursday
-  succ Thursday = Friday
-  succ Friday = Saturday
-  succ Saturday = Sunday
-  succ Sunday = Monday
+  succ Thursday  = Friday
+  succ Friday    = Saturday
+  succ Saturday  = Sunday
+  succ Sunday    = Monday
 
+daysToParty :: Weekday -> Int
+daysToParty Monday    = 4
+daysToParty Tuesday   = 3
+daysToParty Wednesday = 2
+daysToParty Thursday  = 1
+daysToParty Friday    = 7
+daysToParty Saturday  = 6
+daysToParty Sunday    = 5
 
 isWeekend :: Weekday -> Bool
 isWeekend Saturday = True
@@ -1058,6 +1066,7 @@ isWeekend _        = False
 
 nextDay :: Weekday -> Weekday
 nextDay = succ
+
 {-
 =💣= Task 9*
 
@@ -1093,6 +1102,95 @@ Implement data types and typeclasses, describing such a battle between two
 contestants, and write a function that decides the outcome of a fight!
 -}
 
+data Monster = Monster {mHP :: Int, mDmg :: Int} deriving Show
+data Knight = Knight { kHP  :: Int, kDef :: Int, kDmg :: Int} deriving Show
+
+type Effect = forall c. Combatant c => c -> IO c
+
+data Action = Self Effect | Enemy Effect
+
+class Combatant c where
+  desc :: c -> String
+  getActions :: c -> [Action]
+  getHP :: c -> Int
+  modHP :: (Int -> Int) -> c -> c
+  getDmg :: c -> Int
+  modDef :: (Int -> Int) -> c -> c
+  hit :: c -> Int -> c
+  info :: c -> String
+
+instance Combatant Knight where
+  desc _ = "Knight"
+  getHP = kHP
+  modHP f k = k {kHP = f $ kHP k}
+  getDmg = kDmg
+  modDef f k = k {kDef = f $ kDef k}
+  hit k d = modHP (subtract $ max 1 $ d - kDef k) k
+  info = show
+  getActions k = cycle [
+      attack k,
+      drinkHP,
+      castDef
+    ]
+
+instance Combatant Monster where
+  desc _ = "Monster"
+  getHP = mHP
+  modHP f m = m {mHP = f $ mHP m}
+  getDmg = mDmg
+  modDef _ m = m
+  hit m d = modHP (subtract d) m
+  info = show
+  getActions m = cycle [
+      attack m,
+      run
+    ]
+
+simFight :: (Combatant c1, Combatant c2) => c1 -> c2 -> IO ()
+simFight c1 c2 = let actions = concat $ transpose [(getActions c1), (getActions c2)] in
+  putStrLn (desc c1 ++ " engages " ++ desc c2 ++ " in a fight") >> sim c1 c2 actions where
+    sim :: (Combatant c1, Combatant c2) => c1 -> c2 -> [Action] -> IO () -- won't compile without annotation
+    sim c1 c2 [] = do
+      putStrLn "fight ends prematurely"
+      putStrLn $ "<" ++ info c1 ++ ">"
+      putStrLn $ "<" ++ info c2 ++ ">"
+    sim c1 c2 (Self action : actions) = do
+      c1' <- action c1
+      if getHP c1' > 0
+        then sim c2 c1' actions
+        else putStrLn $ desc c1' ++ " dies"
+    sim c1 c2 (Enemy action : actions) = do
+      c2' <- action c2
+      if getHP c2' > 0
+        then sim c2' c1 actions
+        else putStrLn $ desc c2' ++ " dies"
+
+drinkHP :: Action
+drinkHP = Self $ \k -> do
+  putStrLn $ desc k ++ " drinks health potion"
+  pure $ modHP (+ max (getHP k `div` 2) 1) k
+
+castDef :: Action
+castDef = Self $ \k ->  do
+  putStrLn $ desc k ++ " casts holy shield"
+  pure $ modDef succ k -- is there more elegant way to implement that, than defining mod def for monster?
+
+attack :: Combatant who => who -> Action
+attack who = Enemy $ \whom -> do
+  putStrLn $ desc who ++ " attacks " ++ desc whom
+  pure $ hit whom $ getDmg who
+
+run :: Action
+run = Self $ \m -> putStrLn (desc m ++ " runs away") >> pure m
+
+
+testFight :: IO ()
+testFight = 
+  let
+    k = Knight {kHP = 100, kDef = 0, kDmg = 36}
+    m = Monster {mHP = 360, mDmg = 33}
+  in 
+    simFight k m >> simFight m (m {mDmg = 24, mHP = 1000}) >> simFight k (k {kHP = 10, kDef = 25, kDmg = 50})
 
 {-
 You did it! Now it is time to open pull request with your changes
