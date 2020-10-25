@@ -336,9 +336,9 @@ from it!
 ghci> :l src/Chapter2.hs
 -}
 subList :: Int -> Int -> [a] -> [a]
-subList f t 
-  | f >= 0 && t >= 0 = drop f . take (succ t)
-  | otherwise        = const []
+subList f t
+  | f <= t && f >=0 && t >= 0 = drop f . take (succ t)
+  | otherwise                 = const []
 
 {- |
 =⚔️= Task 4
@@ -352,11 +352,10 @@ Implement a function that returns only the first half of a given list.
 -}
 -- PUT THE FUNCTION TYPE IN HERE
 firstHalf :: [a] -> [a]
-firstHalf l = go l 0 where
-  go (_:_:r) n = go r (succ n)
-  go _       n = take n l
-
-
+firstHalf l = go l l where
+  go (f':r') (_:_:r) = f' : go r' r
+  go _       _       = []
+     
 {- |
 =🛡= Pattern matching
 
@@ -543,6 +542,7 @@ steps we need to take in order to reduce the number to zero.
 
 🤔 Blitz question: can you guess what this number represents?
 <guess>recursion depth?</guess>
+<take2> acc == log2 n + 1 ? </take2>
 @
 divToZero :: Int -> Int
 divToZero n = go 0 n
@@ -631,7 +631,8 @@ Write a function that takes elements of a list only on even positions.
 -}
 takeEven :: [a] -> [a]
 takeEven (e:_:r) = e : takeEven r
-takeEven r       = r
+takeEven [e]     = [e]
+takeEven []      = []
 
 {- |
 =🛡= Higher-order functions
@@ -856,8 +857,8 @@ list.
 🕯 HINT: Use the 'cycle' function
 -}
 rotate :: Int -> [a] -> [a]
-rotate d l 
-  | d >= 0    = let n = length l in take n $ drop d $ cycle l
+rotate s l 
+  | s >= 0    = let n = length l in take n $ drop (s `mod` n) $ cycle l
   | otherwise = []
 
 {- |
