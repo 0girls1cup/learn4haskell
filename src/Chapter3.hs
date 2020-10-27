@@ -49,10 +49,11 @@ In this module, we enable the "InstanceSigs" feature that allows writing type
 signatures in places where you can't by default. We believe it's helpful to
 provide more top-level type signatures, especially when learning Haskell.
 -}
-{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE InstanceSigs, ExplicitForAll, RankNTypes #-}
 
 module Chapter3 where
-
+import Data.List (transpose)
+import Control.Applicative ((<|>))
 {-
 =🛡= Types in Haskell
 
@@ -344,6 +345,14 @@ of a book, but you are not limited only by the book properties we described.
 Create your own book type of your dreams!
 -}
 
+data Book = Book {
+  bookTitle :: String,
+  bookAuthor :: String,
+  bookPages :: Integer,
+  isBookForGreatGood :: Bool,
+  bookContent :: String
+}
+
 {- |
 =⚔️= Task 2
 
@@ -459,6 +468,7 @@ and provide more flexibility when working with data types.
 Create a simple enumeration for the meal types (e.g. breakfast). The one who
 comes up with the most number of names wins the challenge. Use your creativity!
 -}
+data Breakfast = Bacon | Bagel | BearClaw | Biscuit | BreadPudding | Burrito | Cereal | Sausage | CerealBar | CinnamonRoll | CoffeeCake | CornFlakes | CreamOfWheat | Crepe | Croissant | Cornbread | Doughnut | Eclair | Eggs | EggSandwich | EggsBenedict | EnergyBar | EnglishMuffin | FrenchToast | FriedEggs | Frittata | Fruit | FruitSalad | Granola | Grits | Ham | HashBrowns | HomeFries | Kolache | McGriddle | McMuffin | MonkeyBread | Muesli | Muffin | Oatmeal | Omelette | Pancake | PopTart | Quiche | Quesadilla | Scone | Soup | Steak | Strudel | Smoothie | Waffle | Yogurt
 
 {- |
 =⚔️= Task 4
@@ -479,6 +489,32 @@ After defining the city, implement the following functions:
    complicated task, walls can be built only if the city has a castle
    and at least 10 living __people__ inside in all houses of the city totally.
 -}
+data House = H1 | H2 | H3 | H4 deriving Enum
+
+data Entertainment = Church | Library
+
+data City 
+  = HasCastle String Entertainment [House] 
+  | HasCastleAndWalls String Entertainment [House] 
+  | NoCastle Entertainment [House]
+
+population :: House -> Int
+population = succ . fromEnum
+
+buildCastle :: String -> City -> City
+buildCastle nn (HasCastle _ e h) = HasCastle nn e h
+buildCastle nn (NoCastle e h) = HasCastle nn e h
+buildCastle nn (HasCastleAndWalls _ e h) = HasCastleAndWalls nn e h
+
+buildHouse :: House -> City -> City
+buildHouse h (HasCastle c e hs) = HasCastle c e (h:hs)
+buildHouse h (HasCastleAndWalls c e hs) = HasCastleAndWalls c e (h:hs)
+buildHouse h (NoCastle e hs) = NoCastle e (h:hs)
+
+buildWalls :: City -> City
+buildWalls (HasCastle c e h) 
+  | (sum $ map population h) > 9       = HasCastleAndWalls c e h
+buildWalls other = other
 
 {-
 =🛡= Newtypes
@@ -560,22 +596,30 @@ introducing extra newtypes.
 🕯 HINT: if you complete this task properly, you don't need to change the
     implementation of the "hitPlayer" function at all!
 -}
+newtype Hp = Hp Int
+newtype Att = Att Int
+newtype Def = Def Int
+newtype Dmg = Dmg Int
+newtype Arm = Arm Int
+newtype Dex = Dex Int
+newtype Str = Str Int
+
 data Player = Player
-    { playerHealth    :: Int
-    , playerArmor     :: Int
-    , playerAttack    :: Int
-    , playerDexterity :: Int
-    , playerStrength  :: Int
+    { playerHealth    :: Hp
+    , playerArmor     :: Arm
+    , playerAttack    :: Att
+    , playerDexterity :: Dex
+    , playerStrength  :: Str
     }
 
-calculatePlayerDamage :: Int -> Int -> Int
-calculatePlayerDamage attack strength = attack + strength
+calculatePlayerDamage :: Att -> Str -> Dmg
+calculatePlayerDamage (Att attack) (Str strength) = Dmg $ attack + strength
 
-calculatePlayerDefense :: Int -> Int -> Int
-calculatePlayerDefense armor dexterity = armor * dexterity
+calculatePlayerDefense :: Arm -> Dex -> Def
+calculatePlayerDefense (Arm armor) (Dex dexterity) = Def $ armor * dexterity
 
-calculatePlayerHit :: Int -> Int -> Int -> Int
-calculatePlayerHit damage defense health = health + defense - damage
+calculatePlayerHit :: Dmg -> Def -> Hp -> Hp
+calculatePlayerHit (Dmg damage) (Def defense) (Hp health) = Hp $ health + defense - damage
 
 -- The second player hits first player and the new first player is returned
 hitPlayer :: Player -> Player -> Player
@@ -752,6 +796,17 @@ parametrise data types in places where values can be of any general type.
 🕯 HINT: 'Maybe' that some standard types we mentioned above are useful for
   maybe-treasure ;)
 -}
+data TreasureChest x = TreasureChest {
+  treasureChestGold :: Int,
+  treasureChestLoot :: x
+}
+
+data Dragon p = Dragon {
+  dragonSleep :: Bool,
+  dragonPower :: Maybe p
+}
+
+data Lair p x = Lair (Dragon p) (Maybe (TreasureChest x))
 
 {-
 =🛡= Typeclasses
@@ -910,6 +965,16 @@ Implement instances of "Append" for the following types:
 class Append a where
     append :: a -> a -> a
 
+newtype Gold = Gold Int
+
+instance Append Gold where
+  append (Gold g1) (Gold g2) = Gold $ g1 + g2
+
+instance Append [a] where
+  append = (++)
+
+instance Append (Maybe a) where
+  append = (<|>)
 
 {-
 =🛡= Standard Typeclasses and Deriving
@@ -970,6 +1035,19 @@ implement the following functions:
 
 🕯 HINT: to implement this task, derive some standard typeclasses
 -}
+data Weekday = Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday deriving (Eq, Show, Enum, Bounded)
+
+daysToParty :: Weekday -> Int
+daysToParty d = succ $ (fromEnum Friday - fromEnum d + 6) `mod` 7
+
+isWeekend :: Weekday -> Bool
+isWeekend Saturday = True
+isWeekend Sunday   = True
+isWeekend _        = False
+
+nextDay :: Weekday -> Weekday
+nextDay Sunday = Monday
+nextDay d      = succ d
 
 {-
 =💣= Task 9*
@@ -1006,6 +1084,95 @@ Implement data types and typeclasses, describing such a battle between two
 contestants, and write a function that decides the outcome of a fight!
 -}
 
+data Monster = Monster {mHP :: Int, mDmg :: Int} deriving Show
+data Knight = Knight { kHP  :: Int, kDef :: Int, kDmg :: Int} deriving Show
+
+type Effect = forall c. Combatant c => c -> IO c
+
+data Action = Self Effect | Enemy Effect
+
+class Combatant c where
+  desc :: c -> String
+  getActions :: c -> [Action]
+  getHP :: c -> Int
+  modHP :: (Int -> Int) -> c -> c
+  getDmg :: c -> Int
+  modDef :: (Int -> Int) -> c -> c
+  hit :: c -> Int -> c
+  info :: c -> String
+
+instance Combatant Knight where
+  desc _ = "Knight"
+  getHP = kHP
+  modHP f k = k {kHP = f $ kHP k}
+  getDmg = kDmg
+  modDef f k = k {kDef = f $ kDef k}
+  hit k d = modHP (subtract $ max 1 $ d - kDef k) k
+  info = show
+  getActions k = cycle [
+      attack k,
+      drinkHP,
+      castDef
+    ]
+
+instance Combatant Monster where
+  desc _ = "Monster"
+  getHP = mHP
+  modHP f m = m {mHP = f $ mHP m}
+  getDmg = mDmg
+  modDef _ m = m
+  hit m d = modHP (subtract d) m
+  info = show
+  getActions m = cycle [
+      attack m,
+      run
+    ]
+
+simFight :: (Combatant c1, Combatant c2) => c1 -> c2 -> IO ()
+simFight c1 c2 = let actions = concat $ transpose [(getActions c1), (getActions c2)] in
+  putStrLn (desc c1 ++ " engages " ++ desc c2 ++ " in a fight") >> sim c1 c2 actions where
+    sim :: (Combatant c1, Combatant c2) => c1 -> c2 -> [Action] -> IO () -- won't compile without annotation
+    sim c1 c2 [] = do
+      putStrLn "fight ends prematurely"
+      putStrLn $ "<" ++ info c1 ++ ">"
+      putStrLn $ "<" ++ info c2 ++ ">"
+    sim c1 c2 (Self action : actions) = do
+      c1' <- action c1
+      if getHP c1' > 0
+        then sim c2 c1' actions
+        else putStrLn $ desc c1' ++ " dies"
+    sim c1 c2 (Enemy action : actions) = do
+      c2' <- action c2
+      if getHP c2' > 0
+        then sim c2' c1 actions
+        else putStrLn $ desc c2' ++ " dies"
+
+drinkHP :: Action
+drinkHP = Self $ \k -> do
+  putStrLn $ desc k ++ " drinks health potion"
+  pure $ modHP (+ max (getHP k `div` 2) 1) k
+
+castDef :: Action
+castDef = Self $ \k ->  do
+  putStrLn $ desc k ++ " casts holy shield"
+  pure $ modDef succ k -- is there more elegant way to implement that, than defining mod def for monster?
+
+attack :: Combatant who => who -> Action
+attack who = Enemy $ \whom -> do
+  putStrLn $ desc who ++ " attacks " ++ desc whom
+  pure $ hit whom $ getDmg who
+
+run :: Action
+run = Self $ \m -> putStrLn (desc m ++ " runs away") >> pure m
+
+
+testFight :: IO ()
+testFight = 
+  let
+    k = Knight {kHP = 100, kDef = 0, kDmg = 36}
+    m = Monster {mHP = 360, mDmg = 33}
+  in 
+    simFight k m >> simFight m (m {mDmg = 24, mHP = 1000}) >> simFight k (k {kHP = 10, kDef = 25, kDmg = 50})
 
 {-
 You did it! Now it is time to open pull request with your changes
