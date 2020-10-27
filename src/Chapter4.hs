@@ -480,8 +480,8 @@ instance Applicative (Secret e) where
     pure a = Reward a
 
     (<*>) :: Secret e (a -> b) -> Secret e a -> Secret e b
-    (<*>) (Reward f) e2       = f <$> e2
-    (<*>) _          (Trap e) = Trap e
+    (<*>) (Reward f) e2 = f <$> e2
+    (<*>) (Trap e)   _  = Trap e
 
 {- |
 =⚔️= Task 5
@@ -646,7 +646,7 @@ Can you implement a monad version of AND, polymorphic over any monad?
 🕯 HINT: Use "(>>=)", "pure" and anonymous function
 -}
 andM :: (Monad m) => m Bool -> m Bool -> m Bool
-andM l r = l >>= (\lres -> r >>= (\rres -> pure $ lres && rres))
+andM l r = l >>= (\lres -> if lres then r >>= (\rres -> pure $ lres && rres) else pure lres)
 
 {- |
 =🐉= Task 9*: Final Dungeon Boss
