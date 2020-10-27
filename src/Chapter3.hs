@@ -49,10 +49,11 @@ In this module, we enable the "InstanceSigs" feature that allows writing type
 signatures in places where you can't by default. We believe it's helpful to
 provide more top-level type signatures, especially when learning Haskell.
 -}
-{-# LANGUAGE InstanceSigs, GADTs, ExplicitForAll, RankNTypes #-}
+{-# LANGUAGE InstanceSigs, ExplicitForAll, RankNTypes #-}
 
 module Chapter3 where
 import Data.List (transpose)
+import Control.Applicative ((<|>))
 {-
 =🛡= Types in Haskell
 
@@ -488,35 +489,32 @@ After defining the city, implement the following functions:
    complicated task, walls can be built only if the city has a castle
    and at least 10 living __people__ inside in all houses of the city totally.
 -}
-data House = H1 | H2 | H3 | H4
+data House = H1 | H2 | H3 | H4 deriving Enum
 
 data Entertainment = Church | Library
 
-newtype Castle = Castle String
-
-type Wall = ()
-
-data City = City 
-  (Maybe (Maybe Wall, Castle))
-  Entertainment
-  [House]
+data City 
+  = HasCastle String Entertainment [House] 
+  | HasCastleAndWalls String Entertainment [House] 
+  | NoCastle Entertainment [House]
 
 population :: House -> Int
-population H1 = 1
-population H2 = 2
-population H3 = 3
-population H4 = 4
+population = succ . fromEnum
 
 buildCastle :: String -> City -> City
-buildCastle nn (City c e h) = City (fmap (const $ Castle nn) <$> c) e h
+buildCastle nn (HasCastle _ e h) = HasCastle nn e h
+buildCastle nn (NoCastle e h) = HasCastle nn e h
+buildCastle nn (HasCastleAndWalls _ e h) = HasCastleAndWalls nn e h
 
 buildHouse :: House -> City -> City
-buildHouse h (City c e hs) = City c e (h:hs)
+buildHouse h (HasCastle c e hs) = HasCastle c e (h:hs)
+buildHouse h (HasCastleAndWalls c e hs) = HasCastleAndWalls c e (h:hs)
+buildHouse h (NoCastle e hs) = NoCastle e (h:hs)
 
-buildWalls :: City -> Maybe City
-buildWalls (City (Just (Nothing, c)) e h) 
-  | (sum $ map population h) > 9 = Just $ City (Just (Just (), c)) e h 
-buildWalls _                     = Nothing
+buildWalls :: City -> City
+buildWalls (HasCastle c e h) 
+  | (sum $ map population h) > 9       = HasCastleAndWalls c e h
+buildWalls other = other
 
 {-
 =🛡= Newtypes
@@ -975,10 +973,8 @@ instance Append Gold where
 instance Append [a] where
   append = (++)
 
-instance (Append a) => Append (Maybe a) where
-  append m1 m2  = append <$> m1 <*> m2
-
-
+instance Append (Maybe a) where
+  append = (<|>)
 
 {-
 =🛡= Standard Typeclasses and Deriving
@@ -1039,25 +1035,10 @@ implement the following functions:
 
 🕯 HINT: to implement this task, derive some standard typeclasses
 -}
-data Weekday = Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday deriving (Eq, Show)
-
-instance Enum Weekday where
-  succ Monday    = Tuesday
-  succ Tuesday   = Wednesday
-  succ Wednesday = Thursday
-  succ Thursday  = Friday
-  succ Friday    = Saturday
-  succ Saturday  = Sunday
-  succ Sunday    = Monday
+data Weekday = Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday deriving (Eq, Show, Enum, Bounded)
 
 daysToParty :: Weekday -> Int
-daysToParty Monday    = 4
-daysToParty Tuesday   = 3
-daysToParty Wednesday = 2
-daysToParty Thursday  = 1
-daysToParty Friday    = 7
-daysToParty Saturday  = 6
-daysToParty Sunday    = 5
+daysToParty d = succ $ (fromEnum Friday - fromEnum d + 6) `mod` 7
 
 isWeekend :: Weekday -> Bool
 isWeekend Saturday = True
@@ -1065,7 +1046,8 @@ isWeekend Sunday   = True
 isWeekend _        = False
 
 nextDay :: Weekday -> Weekday
-nextDay = succ
+nextDay Sunday = Monday
+nextDay d      = succ d
 
 {-
 =💣= Task 9*
