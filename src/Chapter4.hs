@@ -502,7 +502,7 @@ conc (Cons (Cons e r) rl) = Cons e $ conc $ Cons r rl
 
 instance Applicative List where
   pure e = Cons e Empty
-  lf <*> lx = conc $ (\f -> f <$> lx) <$> lf where
+  lf <*> lx = conc $ (\f -> f <$> lx) <$> lf
 
 {- |
 =🛡= Monad
@@ -646,7 +646,7 @@ Can you implement a monad version of AND, polymorphic over any monad?
 🕯 HINT: Use "(>>=)", "pure" and anonymous function
 -}
 andM :: (Monad m) => m Bool -> m Bool -> m Bool
-andM l r = l >>= (\lres -> if lres then r >>= (\rres -> pure $ lres && rres) else pure lres)
+andM l r = l >>= \lres -> if lres then r else pure False
 
 {- |
 =🐉= Task 9*: Final Dungeon Boss
